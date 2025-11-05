@@ -5,7 +5,7 @@ from scipy.stats import chi2
 
 with open("Интервальный ряд.txt", "r") as f:
     i_row = [
-        [[int(p) for p in c.split(" ")[0].split("-")], int(c.split(" ")[1])]
+        [[int(p) for p in c.split(" ")[0].split("-")], int(c.split(" ")[1][2::])]
         for c in f.readlines()
     ]
     

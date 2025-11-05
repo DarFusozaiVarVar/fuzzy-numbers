@@ -8,7 +8,7 @@ with open("Интервальный ряд.txt", "r") as f:
         [[int(p) for p in c.split(" ")[0].split("-")], int(c.split(" ")[1])]
         for c in f.readlines()
     ]
-
+    
 def i_chi_observable(row, n): #Хи наблюдаемое
     n1 = []
     n2 = []
@@ -41,6 +41,7 @@ for i in range(len(i_row)):
 #i_standard_deviation(i_row) СКО
 
 zi = [] #Стандартизированные значения xi
+
 for i in range(len(i_row)):
     zi.append((xi[i]-i_sample_mean(i_row)) / i_standard_deviation(i_row))
 

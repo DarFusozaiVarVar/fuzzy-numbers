@@ -1,173 +1,242 @@
+from StatAnalysis import *
 from math import *
-import random
-import copy
 import matplotlib.pyplot as plt
-import scipy.stats as stats
-import numpy as np
+import copy
+with open("Москва_2021.txt", "r") as f:
+    d_row = create_discrete_series([int(l.strip()) for l in f])
 
-def average(row):
-    average = 0
-    l = copy.deepcopy(row)
-    for i in range(0, len(l)):
-        average += float(l[i][0]) * float(l[i][1])
-    return average / N
+def covariation(row): #Ковариация
+    covar = 0.0
+    x_a = 0.0
+    y_a = 0.0
+    for i in range(len(row)):
+        x_a += row[i][0] / len(row)
+        y_a += row[i][1] / len(row)
+    for i in range(len(row)):
+        covar += ((row[i][0] - x_a) * (row[i][1] - y_a)) / len(row)
+    return covar
 
-def variance(row):
-    mx = 0
-    mx2 = 0
-    l = copy.deepcopy(row)
-    
-    for i in range(0, len(l)):
-        mx += float(l[i][0]) * float(l[i][1])
-        mx2 += (float(l[i][0])**2) * float(l[i][1])
-    mx = mx / N
-    mx2 = mx2 / N
-    return mx2 - (mx**2)
+def standard_deviations_for_x_y(row): #Стандартные отклонения (и средние) для x и y, оформленные в виде словаря.
+    result = []
+    x_a = 0.0
+    x_a2 = 0.0
+    y_a = 0.0
+    y_a2 = 0.0
+    x_sd = 0.0
+    y_sd = 0.0
+    for i in range(len(row)):
+        x_a += row[i][0] / len(row)
+        x_a2 += (row[i][0] * row[i][0]) / len(row)
+        y_a += row[i][1] / len(row)
+        y_a2 += (row[i][1] * row[i][1]) / len(row)
+    x_sd = sqrt(x_a2 - (x_a ** 2))
+    y_sd = sqrt(y_a2 - (y_a ** 2))
+    return {"среднняя X": x_a, "среднняя Y": y_a, "СКО X": x_sd, "СКО Y": y_sd}
 
-def i_average(row, w ,size):
-    average = 0
-    for i in range(len(row) - 1):
-        average += ((row[i] + row[i+1]) / 2) * w[i]
-    return average
+def correlation_coefficient(row, print_result = False): #Коэффициент корреляции
+    r_xy = covariation(row) / (standard_deviations_for_x_y(row)["СКО X"] * standard_deviations_for_x_y(row)["СКО Y"])
+    if print_result:
+        print_res = ""
+        if 0 < abs(r_xy) <= 0.3:
+            print_res = "Слабая "
+            if r_xy < 0:
+                print_res += "обратная "
+            else:
+                print_res += "прямая "
+            print_res += "зависимость"
+        elif 0.3 < abs(r_xy) <= 0.5:
+            print_res = "Умеренная "
+            if r_xy < 0:
+                print_res += "обратная "
+            else:
+                print_res += "прямая "
+            print_res += "зависимость"
+        elif 0.5 < abs(r_xy) <= 0.7:
+            print_res = "Заметная "
+            if r_xy < 0:
+                print_res += "обратная "
+            else:
+                print_res += "прямая "
+            print_res += "зависимость"
+        elif 0.7 < abs(r_xy) < 1:
+            print_res = "Сильная "
+            if r_xy < 0:
+                print_res += "обратная "
+            else:
+                print_res += "прямая "
+            print_res += "зависимость"
+        elif abs(r_xy) == 1:
+            print_res = "Функциональная"
+            if r_xy < 0:
+                print_res += "обратная "
+            else:
+                print_res += "прямая "
+            print_res += "зависимость"
+        print(print_res)
+    return r_xy
 
-def i_variance(row, w, size):
-    mx = i_average(row, w, size)
-    variance = 0
-    for i in range(len(row) - 1):
-        a = (row[i] + row[i+1]) / 2
-        b = ((a - mx)**2) * w[i]
-        variance += b
-    return variance
-
-def i_average_square_deviation(row, w, size):
-    return sqrt(i_variance(row, w, size))
-
-def sample_size(row, accuracy=3.0, reliability=0.95):
-    z = stats.norm.ppf((1 + reliability) / 2)
-    sigma = np.sqrt(variance(row))
-    n = (z * sigma / accuracy)**2
-    return ceil(n)
-
-def generate_samples(row, num_samples=36):
-    n = sample_size(row)
-    data = []
-    for age, freq, _ in row:
-        data.extend([age] * freq)
-    
-    sample_means = []
-    for _ in range(num_samples):
-        sample = random.choices(data, k=n)
-        sample_means.append(round(float(np.mean(sample)), 2))
-    return sample_means
-
-def gauss_curve(row, AVERAGE, ASD): #ASD stands for average square deviation
-    out = []
-    for i in range(0, len(row)):
-        x = row[i]
-        out.append(exp(-((x-AVERAGE)**2)/(2*ASD**2))/(ASD*sqrt(2*pi)))
-    return out
-
-d_row = [] #Дискретный ряд
-N = 0 #Общая сумма частот ряда
-
-with open(r'Москва_2021.txt') as f:
-    s = f.read().splitlines()
-unique = []
-unc = []
-N = len(s)
-
-with open(r'Дискретный ряд.txt', 'w+') as t:
-    for i in s:
-        if i not in unique:
-            unique.append(i)
-    unique.sort()
-    for i in unique:
-        unc.append(s.count(i))
-    for i in range(0, len(unique)):
-        t.write(str(unique[i]) + ' ' + str(unc[i]) + ' ' + str(unc[i] / N) + '\n')
-    t.close()
-
-with open(r'Дискретный ряд.txt', 'r') as f:
-    r = f.readlines()
-    for i in range(len(r)):
-        d_row.append(r[i].split(" "))
-        d_row[i][0] = int(d_row[i][0])
-        d_row[i][1] = int(d_row[i][1])
-        d_row[i][2] = float(d_row[i][2])
-    f.close
-
-
-sample_means = generate_samples(d_row)
-print(sample_means)
-
-left_bound = floor(min(sample_means))
-right_bound = ceil(max(sample_means))
-intervals = list(range(left_bound, right_bound + 1))
-freqs = [0] * (len(intervals) - 1)
-
-for mean in sample_means:
-    for i in range(len(intervals) - 1):
-        if intervals[i] <= mean < intervals[i + 1]:
-            freqs[i] += 1
-            break
+def check_hypothesis(row):
+    T_crit = 2.01 #ВЗЯТО ИЗ ТАБЛИЦЫ критических точек распределения Стьюдента!!!! Для k = n - 2 = 58 - 2 = 56 = 2.01
+    T = (correlation_coefficient(row) * sqrt(len(row) - 2)) / sqrt(1 - (correlation_coefficient(row)**2))
+    if abs(T) < T_crit:
+        print("Нет оснований отвергнуть нулевую гипотезу, T =", T)
     else:
-        if mean == intervals[-1]:
-            freqs[-1] += 1
+        print("Нулевая гипотеза отвергается, T =", T)
 
-total = len(sample_means)
-rel_freqs = [f / total for f in freqs]
-
-with open(r'Интервальный ряд.txt', 'w', encoding='utf-8') as t:
-    for i in range(len(freqs)):
-        line = str(intervals[i]) + "-" + str(intervals[i + 1]) + " " + str(round(rel_freqs[i], 4)) + "\n"
-        t.write(line)
-
-print("Интервальные ряды и относительные частоты:")
-for i in range(len(freqs)):
-    print("[" + str(intervals[i]) + ", " + str(intervals[i+1]) + "): " + str(round(rel_freqs[i], 3)))
-
-#График
-fig, [ax1, ax2] = plt.subplots(2)
-ax1.bar(
-    [f"{intervals[i]}-{intervals[i+1]}" for i in range(len(freqs))],
-    rel_freqs, width=0.8, align='center'
-)
-plt.xlabel("Интервалы")
-plt.ylabel("Относительная частота")
-plt.title("Интервальный ряд распределения выборочных средних")
-
-#part 2
-AVERAGE = i_average(intervals, rel_freqs, len(sample_means))
-ASD = i_average_square_deviation(intervals, rel_freqs, len(sample_means))
-print(AVERAGE)
-print(ASD)
-gauss_row = gauss_curve(intervals, AVERAGE, ASD)
-print(gauss_row)
-ax2.plot(intervals, gauss_row, color = 'red')
-rf = copy.deepcopy(rel_freqs)
-#rf.append(rf[-1])
-#ax2.plot(intervals, rf, color = 'blue')
+print("n =", len(d_row))
+for key in standard_deviations_for_x_y(d_row).keys():
+    print(key, standard_deviations_for_x_y(d_row)[key])
+print("r_xy =", correlation_coefficient(d_row, True))
+check_hypothesis(d_row)
+x = [c[0] for c in d_row]
+y = [c[1] for c in d_row]
+plt.grid(True)
+plt.scatter(x, y)
 plt.show()
 
-#gauss row test
-#av = 0.168
-#asd = 1.448
-#fr = [-4, -3, -2, -1, 0, 1, 2, 3, 4]
-#print(gauss_curve(fr, av, asd))
 
-#Выборочное среднее
-mean_sample = np.mean(sample_means)
+######### Лабораторная 4.2
+with open("Москва_2021.txt", "r") as f: #Не использовался
+    i_row = create_interval_series([int(l.strip()) for l in f])
 
-#Выборочная стандартной ошибки
-s = np.std(sample_means, ddof = 1)
+def group_averages(row, n = 7): #Групповые средние (в качестве аргумента берётся дискретный ряд!)
+    g_a = []
+    h = ceil(len(row) / n)
+    for i in range(n):
+        g_a.append(0.0)
+        g = 0.0
+        for j in range(h):
+            try:
+                g += row[i * h + j][1]
+                g_a[i] += row[i * h + j][0] * row[i * h + j][1]
+            except IndexError:
+                g_a[i] += 0.0
+        g_a[i] = g_a[i] / g
+    return g_a
 
-alpha = 1.0 - 0.95
+def group_average(row, n = 7): #Общая средняя, то же самое, что и sample_mean()
+    g_a = []
+    g_list = []
+    group_aver = 0.0
+    h = ceil(len(row) / n)
+    for i in range(n):
+        g_a.append(0.0)
+        g = 0.0
+        for j in range(h):
+            try:
+                g += row[i * h + j][1]
+                g_a[i] += row[i * h + j][0] * row[i * h + j][1]
+            except IndexError:
+                g_a[i] += 0.0
+        g_a[i] = g_a[i] / g
+        g_list.append(g)
+    for i in range(len(g_a)):
+        group_aver += g_a[i] * g_list[i]
+    return group_aver / sum(g_list)
 
-#t критерий
-t_crit = stats.t.ppf(1.0 - alpha / 2.0, len(sample_means) - 1.0)
+def group_dispersions(row, n = 7): #Групповые дисперсии (в качестве аргумента берётся дискретный ряд!)
+    d_gr = []
+    h = ceil(len(row) / n)
+    for i in range(n):
+        d_gr.append(0.0)
+        g = 0.0
+        for j in range(h):
+            try:
+                g += row[i * h + j][1]
+                d_gr[i] += ((row[i * h + j][0] - group_averages(row, n)[i]) ** 2) * row[i * h + j][1]
+            except IndexError:
+                d_gr[i] += 0.0
+        d_gr[i] = d_gr[i] / g
+    return d_gr
 
-#Доверительный интервал
-lower_bound = mean_sample - t_crit * s / sqrt(len(sample_means))
-upper_bound = mean_sample + t_crit * s / sqrt(len(sample_means))
+def within_group_dispersion(row, n = 7): #Внутригрупповая дисперсия для интервального ряда
+    d_gr = []
+    h = ceil(len(row) / n)
+    Nj = []
+    D = 0.0
+    for i in range(n):
+        d_gr.append(0.0)
+        g = 0.0
+        for j in range(h):
+            try:
+                g += row[i * h + j][1]
+                d_gr[i] += ((row[i * h + j][0] - group_averages(row, n)[i]) ** 2) * row[i * h + j][1]
+            except IndexError:
+                d_gr[i] += 0.0
+        d_gr[i] = d_gr[i] / g
+        Nj.append(g)
+    for i in range(len(d_gr)):
+        D += d_gr[i] * Nj[i]
+    return D / sum(Nj)
 
-print(f"Доверительный интервал с надежностью {int(0.95*100)}%: ({lower_bound:.2f}, {upper_bound:.2f})")
+def between_group_dispersion(row, n = 7): #Межгрупповая дисперсия для интервального ряда
+    h = ceil(len(row) / n)
+    Nj = []
+    a = group_averages(row, n)
+    D_bg = 0.0
+    for i in range(n):
+        g = 0.0
+        for j in range(h):
+            try:
+                g += row[i * h + j][1]
+            except IndexError:
+                pass
+        Nj.append(g)
+    for i in range(len(a)):
+        D_bg += ((a[i] - group_average(row, n)) ** 2) * Nj[i]
+    return D_bg / sum(Nj)
+
+def ranks(row): #Вычисление рангов
+    indexed_row_x = [[row[i][0], i] for i in range(len(row))]
+    indexed_row_y = [[row[i][1], i] for i in range(len(row))]
+    indexed_row_x = sorted(indexed_row_x, key=lambda x: x[0])
+    indexed_row_y = sorted(indexed_row_y, key=lambda x: x[0])
+    out_row = [[0, 0]] * len(row)
+
+    n = len(indexed_row_x)
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and indexed_row_x[j + 1][0] == indexed_row_x[i][0]:
+            j += 1
+        average_rank = sum(range(i + 1, j + 2)) / (j - i + 1)
+        for k in range(i, j + 1):
+            indexed_row_x[k][0] = average_rank
+        i = j + 1
+    
+    n = len(indexed_row_y)
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and indexed_row_y[j + 1][0] == indexed_row_y[i][0]:
+            j += 1
+        average_rank = sum(range(i + 1, j + 2)) / (j - i + 1)
+        for k in range(i, j + 1):
+            indexed_row_y[k][0] = average_rank
+        i = j + 1
+
+    indexed_row_x = sorted(indexed_row_x, key=lambda x: x[1])
+    indexed_row_y = sorted(indexed_row_y, key=lambda x: x[1])
+    for i in range(len(out_row)):
+        out_row[i] = [indexed_row_x[i][0], indexed_row_y[i][0]]
+    
+    return out_row
+
+def rank_correlation_coefficient(row):
+    rnks = ranks(row)
+    r = 0.0
+    for i in range(len(rnks)):
+        r += 6 * (rnks[i][0] - rnks[i][1])**2
+    r = r / (len(rnks) * (len(rnks)**2 - 1.0))
+    r = 1 - r
+    return r
+
+print("Dвнгр =", within_group_dispersion(d_row))
+print("Dмежгр =", between_group_dispersion(d_row))
+print("D =", dispersion(d_row))
+print("Dвнгр + Dмежгр =", within_group_dispersion(d_row) + between_group_dispersion(d_row))
+print("Корреляционное соотношение =", sqrt(between_group_dispersion(d_row) / dispersion(d_row)))
+print("Nxi Nyi di di^2")
+for i in range(len(ranks(d_row))):
+    print(ranks(d_row)[i][0], ranks(d_row)[i][1], ranks(d_row)[i][0] - ranks(d_row)[i][1], (ranks(d_row)[i][0] - ranks(d_row)[i][1])**2)
+print("R =", rank_correlation_coefficient(d_row))
